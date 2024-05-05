@@ -1,7 +1,7 @@
-# Lattice Partitioning and Processing Documentation
+# Resource-Constrained Surface Code Decoding: Analysis and Optimization Strategies
 
 ## Overview
-This code implements a system for partitioning a lattice graph into subgraphs, assigning these subgraphs to resources based on their complexity, and processing the subgraphs in parallel. The system utilizes a dynamic load balancing approach to distribute the subgraphs among high-complexity and low-complexity resources efficiently.
+This code implements a system for partitioning a surface code lattice into subgraphs, assigning these subgraphs to decoding units (resources) based on their complexity (number of nodes in syndrome graph), and processing the syndrome graphs in parallel. The system utilizes a dynamic load balancing approach to distribute the decosding of partitions among high-complexity-handling units and low-complexity-handling units efficiently.
 
 ## Main Script (`main.py`)
 
@@ -134,5 +134,3 @@ This code implements a system for partitioning a lattice graph into subgraphs, a
 - `matplotlib`: Library for generating the Gantt chart.
 - `numpy`: Library for numerical operations.
 - `Resource`: Custom module containing the `Resource` and `Partition` classes.
-
-Please ensure that all the required dependencies are installed before running the code.
