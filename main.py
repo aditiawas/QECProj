@@ -1,10 +1,10 @@
 import networkx as nx
 import random
-import time
 import multiprocessing
 import argparse
-from Resource import Resource, hierarchical_schedule, dynamic_load_balancing, process_queue_wrapper
 import math
+import time
+from Resource import *
 
 def spatial_hash(node_position, grid_size, lattice_size):
     x, y = node_position
@@ -29,52 +29,49 @@ def partition_lattice(lattice, num_partitions):
         partition_index = spatial_hash(node_position, grid_size, lattice_size) % num_partitions
         partitions[partition_index].add(node)
 
+    # Remove empty partitions
+    partitions = [nodes for nodes in partitions if nodes]
+
     subgraphs = []
     for nodes in partitions:
         subgraph = lattice.subgraph(nodes)
         n = len(nodes)
-        max_complexity = n * (n - 1) // 2
 
-        complexity = random.randint(0, max_complexity)
-        complexity = int(complexity ** 0.6)
+        # Calculate the number of activated nodes based on the physical error rate
+        num_error_nodes = sum(random.random() < 0.001 for _ in range(n))
+
+        # Set the complexity equal to the number of activated nodes
+        complexity = num_error_nodes
 
         subgraphs.append((subgraph, complexity))
 
-    for i in range(num_partitions):
-        for j in range(i + 1, num_partitions):
+    # Check for shared nodes between partitions
+    for i in range(len(partitions)):
+        for j in range(i + 1, len(partitions)):
             shared_nodes = partitions[i] & partitions[j]
             if shared_nodes:
                 subgraph1, complexity1 = subgraphs[i]
                 subgraph2, complexity2 = subgraphs[j]
-                subgraph1.add_nodes_from(shared_nodes)
-                subgraph2.add_nodes_from(shared_nodes)
-                subgraphs[i] = (subgraph1, complexity1)
-                subgraphs[j] = (subgraph2, complexity2)
+
+                # Check if either subgraph is empty
+                if not subgraph1.nodes:
+                    subgraphs[i] = (subgraph2, complexity2)
+                elif not subgraph2.nodes:
+                    subgraphs[j] = (subgraph1, complexity1)
+                else:
+                    subgraph1.add_nodes_from(shared_nodes)
+                    subgraph2.add_nodes_from(shared_nodes)
+                    subgraphs[i] = (subgraph1, complexity1)
+                    subgraphs[j] = (subgraph2, complexity2)
 
     return subgraphs
 
 def combine_partitions(subgraph1, subgraph2):
-    """
-    Combine two subgraphs by merging their nodes and edges.
-
-    Args:
-        subgraph1 (nx.Graph): The first subgraph.
-        subgraph2 (nx.Graph): The second subgraph.
-
-    Returns:
-        nx.Graph: The combined subgraph.
-    """
     combined_graph = nx.Graph()
     combined_graph.add_nodes_from(subgraph1.nodes, bipartite=subgraph1.nodes)
     combined_graph.add_nodes_from(subgraph2.nodes, bipartite=subgraph2.nodes)
     combined_graph.add_edges_from(subgraph1.edges)
     combined_graph.add_edges_from(subgraph2.edges)
-
-    num_boundary_nodes = len(set(subgraph1.nodes) & set(subgraph2.nodes))
-    processing_time = num_boundary_nodes  # Simulate time proportional to the number of boundary nodes
-
-    # Simulate processing time
-    time.sleep(processing_time / 1000000)  # Divide by 1000000 to reduce actual waiting time
 
     return combined_graph
 
@@ -90,10 +87,15 @@ def combine_partitions_parallel(subgraphs):
     """
     with multiprocessing.Pool() as pool:
         while len(subgraphs) > 1:
+            if len(subgraphs) % 2 != 0:
+                # If there is an odd number of subgraphs, combine the last subgraph with the second-to-last subgraph
+                subgraphs[-2] = combine_partitions(subgraphs[-2], subgraphs[-1])
+                subgraphs.pop()
+
             pairs = [(subgraphs[i], subgraphs[i + 1]) for i in range(0, len(subgraphs), 2)]
             subgraphs = pool.starmap(combine_partitions, pairs)
 
-    return subgraphs[0]
+    return subgraphs[0] if subgraphs else None
 
 if __name__ == "__main__":
     # Parse command-line arguments
@@ -102,9 +104,10 @@ if __name__ == "__main__":
     parser.add_argument("--partitions", type=int, default=8, help="Number of partitions to create")
     parser.add_argument("--num_hr", type=int, default=2, help="Number of high-complexity resources")
     parser.add_argument("--num_lr", type=int, default=3, help="Number of low-complexity resources")
+    parser.add_argument("--thresh_compl", type=int, default=6, help="Number of low-complexity resources")
     args = parser.parse_args()
 
-    start_time = time.time()  # Record the start time
+    start_time = time.time()
 
     # Create a sample lattice
     lattice = nx.grid_2d_graph(args.size[0], args.size[1])
@@ -116,27 +119,31 @@ if __name__ == "__main__":
     high_complexity_resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(args.num_hr)]
 
     # Create low-complexity resources
-    low_complexity_resources = [Resource(i + args.num_hr, max_complexity=6, type='low') for i in range(args.num_lr)]
+    low_complexity_resources = [Resource(i + args.num_hr, max_complexity=args.thresh_compl, type='low') for i in range(args.num_lr)]
 
     # Perform dynamic load balancing and schedule partitions
     combined_resources = dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)
 
-    # Process queues in parallel using multiprocessing
-    with multiprocessing.Pool(processes=len(combined_resources)) as pool:
-        pool.map(process_queue_wrapper, combined_resources)
+    # Estimate processing times for each resource
+    max_time_taken = 0
 
-    # Print which partition was processed on which resource
     print("\nPartition Processing:")
     for resource in combined_resources:
-        print(f"Resource {resource.id} ({resource.type}):")
+        #print(f"Resource {resource.id} ({resource.type}):")
+        resource.process_queue()
+        print(f"Resource {resource.id} ({resource.type}) utilization time: {resource.utilization_time:.9f}")
+        max_time_taken = max(max_time_taken, resource.max_time_taken)
         for task in resource.queue:
-            print(f"  Partition with {len(task.nodes)} nodes (complexity {task.complexity})")
+            print(f"  Partition with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
+        print("\n")
 
     # Combine all partitions in parallel
     all_partitions = [subgraph for subgraph, _ in partitions]
     combined_lattice = combine_partitions_parallel(all_partitions)
-    print(f"\nCombined lattice has {len(combined_lattice.nodes)} nodes.")
+    print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
+
+    print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
 
     end_time = time.time()  # Record the end time
     total_time = end_time - start_time
-    print(f"\nTotal time taken: {total_time:.6f} seconds.")
+    print(f"\nScheduling time taken: {total_time:.6f} seconds.")

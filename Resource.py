@@ -1,6 +1,4 @@
-import networkx as nx
 from collections import deque
-import time
 
 class Resource:
     def __init__(self, id, max_complexity, type):
@@ -11,6 +9,8 @@ class Resource:
         self.queue = deque()
         self.processing_time = 0
         self.start_time = None
+        self.utilization_time = 0  # New attribute to store the utilization time
+        self.max_time_taken = 0  # New attribute to store the maximum time taken
 
     def can_handle(self, complexity):
         return complexity <= self.max_complexity
@@ -19,27 +19,20 @@ class Resource:
         self.queue.append(task)
         self.load += task.complexity
 
-    def process_task(self, task):
-        n = len(task.nodes)
+    def estimate_processing_time(self, task):
         if self.type == 'high':
             if task.complexity <= self.max_complexity:
-                processing_time = n ** 3  # O(n^3) complexity for high-complexity resources
-            else:
-                processing_time = n ** 4  # Higher complexity for low-complexity partitions on high-complexity resources
+                processing_time = (task.complexity ** 3)*(10**-7)  # O(n^3) complexity for high-complexity resources
         else:
-            processing_time = n ** 2  # O(n^2) complexity for low-complexity resources
+            processing_time = (task.complexity ** 2)*(10**-7)  # O(n^2) complexity for low-complexity resources
 
-        # Simulate processing time
-        time.sleep(processing_time / 1000000)  # Divide by 1000000 to reduce actual waiting time
-        self.processing_time += processing_time
+        self.utilization_time += processing_time
+        return processing_time
 
     def process_queue(self):
-        self.start_time = time.time()  # Record the start time
-        while self.queue:
-            task = self.queue.popleft()
-            self.process_task(task)
-        total_time = time.time() - self.start_time  # Calculate the total time taken
-        print(f"Resource {self.id} ({self.type}) took {total_time:.6f} seconds to process all tasks.")
+        total_processing_time = sum(self.estimate_processing_time(task) for task in self.queue)
+        self.max_time_taken = max(self.max_time_taken, total_processing_time)
+        print(f"Resource {self.id} ({self.type}) estimated processing time: {total_processing_time:.9f}")
 
     def __repr__(self):
         return f"Resource {self.id} ({self.type}, load={self.load}, processing_time={self.processing_time})"
@@ -73,7 +66,6 @@ def least_loaded(partitions, resources, max_complexity):
 
         least_loaded = min(compatible_resources, key=lambda r: r.load)
         least_loaded.assign_task(Partition(partition, complexity))
-        least_loaded.process_task(Partition(partition, complexity))  # Process the assigned task
 
     return resources
 
