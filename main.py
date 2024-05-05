@@ -107,8 +107,6 @@ if __name__ == "__main__":
     parser.add_argument("--thresh_compl", type=int, default=6, help="Number of low-complexity resources")
     args = parser.parse_args()
 
-    start_time = time.time()
-
     # Create a sample lattice
     lattice = nx.grid_2d_graph(args.size[0], args.size[1])
 
@@ -121,8 +119,12 @@ if __name__ == "__main__":
     # Create low-complexity resources
     low_complexity_resources = [Resource(i + args.num_hr, max_complexity=args.thresh_compl, type='low') for i in range(args.num_lr)]
 
+    start_time = time.time()
     # Perform dynamic load balancing and schedule partitions
     combined_resources = dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)
+    end_time = time.time()  # Record the end time
+    total_time = end_time - start_time
+    print(f"\nScheduling overhead: {total_time:.9f} seconds.")
 
     # Estimate processing times for each resource
     max_time_taken = 0
@@ -137,13 +139,13 @@ if __name__ == "__main__":
             print(f"  Partition with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
         print("\n")
 
+    start_time = time.time()
     # Combine all partitions in parallel
     all_partitions = [subgraph for subgraph, _ in partitions]
     combined_lattice = combine_partitions_parallel(all_partitions)
+    end_time = time.time()  # Record the end time
+    total_time = end_time - start_time
+    print(f"Lattice formation time: {total_time:.9f} seconds.")
     print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
 
     print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
-
-    end_time = time.time()  # Record the end time
-    total_time = end_time - start_time
-    print(f"\nScheduling time taken: {total_time:.6f} seconds.")
