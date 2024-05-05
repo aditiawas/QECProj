@@ -43,7 +43,7 @@ class Resource:
                 start_time = end_time
                 accuracy = task.accuracy
                 if self.type == 'low':
-                    accuracy -= 10  # Reduce accuracy by 30% if processed by a low-complexity resource
+                    accuracy -= 5  # Reduce accuracy by 5% if processed by a low-complexity resource
                 processed_tasks.append((task, processing_time, accuracy))
                 self.processed_tasks.add(task)  # Mark the task as processed
 

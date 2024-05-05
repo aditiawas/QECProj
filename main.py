@@ -19,49 +19,36 @@ def partition_lattice(lattice, num_partitions):
     num_nodes = len(lattice.nodes)
     lattice_size = int(math.sqrt(num_nodes))
 
-    partitions = [set() for _ in range(num_partitions)]
+    partitions = [[] for _ in range(num_partitions)]
 
     # Start with an initial grid size
     grid_size = lattice_size / math.sqrt(num_partitions)
 
-    # Iterate until all partitions are non-empty
-    while any(len(partition) == 0 for partition in partitions):
-        partitions = [set() for _ in range(num_partitions)]
-        for node in lattice.nodes:
-            row, col = node
-            node_position = (row, col)
-            partition_index = spatial_hash(node_position, grid_size, lattice_size, num_partitions)
-            partitions[partition_index].add(node)
-
-        # If there are empty partitions, reduce the grid size and try again
-        if any(len(partition) == 0 for partition in partitions):
-            grid_size /= 2
-
-    # Add shared nodes to relevant partitions
     for node in lattice.nodes:
         row, col = node
+        node_position = (row, col)
+        partition_index = spatial_hash(node_position, grid_size, lattice_size, num_partitions)
+
+        # Add the current node to the partition
+        partitions[partition_index].append(node)
+
+        # Add neighboring nodes to the same partition
         neighbors = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]
-        node_partitions = set()
         for neighbor in neighbors:
             if neighbor in lattice.nodes:
-                partition_index = spatial_hash(neighbor, grid_size, lattice_size, num_partitions)
-                node_partitions.add(partition_index)
-        for partition_index in node_partitions:
-            partitions[partition_index].add(node)
+                neighbor_partition_index = spatial_hash((neighbor[0], neighbor[1]), grid_size, lattice_size, num_partitions)
+                if neighbor_partition_index != partition_index:
+                    partitions[neighbor_partition_index].append(node)
 
-    # print("Shared node counts:")
-    # for i, partition in enumerate(partitions):
-    #     shared_count = sum(1 for node in partition if any(node in other_partition for j, other_partition in enumerate(partitions) if i != j))
-    #     print(f"Partition {i}: {shared_count} shared nodes")
-
+    # Create subgraphs from the partitions
     subgraphs = []
     partition_index = 0
     for nodes in partitions:
-        subgraph = lattice.subgraph(nodes)
+        subgraph = lattice.subgraph(set(nodes))
         n = len(nodes)
 
         # Calculate the number of activated nodes based on the physical error rate
-        num_error_nodes = sum(random.random() < 0.001 for _ in range(n))
+        num_error_nodes = sum(random.random() <= 0.001 for _ in range(n))
 
         # Set the complexity equal to the number of activated nodes
         complexity = num_error_nodes + 1
@@ -78,15 +65,20 @@ def combine_partitions(subgraph1, subgraph2, original_lattice):
     # Remove duplicate nodes and count shared nodes
     node_positions = set()
     shared_nodes = 0
+    nodes_to_remove = set()
     for node in combined_graph.nodes():
         if node in node_positions:
-            combined_graph.remove_node(node)
+            nodes_to_remove.add(node)
             shared_nodes += 1
         else:
             node_positions.add(node)
 
+    # Remove duplicate nodes from the combined graph
+    for node in nodes_to_remove:
+        combined_graph.remove_node(node)
+
     # Calculate latency based on the number of shared nodes
-    latency = 2 * shared_nodes * (10 ** -10)
+    latency = 2 * shared_nodes * (10 ** -9)
 
     return combined_graph, latency
 
@@ -120,8 +112,7 @@ def combine_partitions_parallel(subgraphs, original_lattice):
 
     return subgraphs[0], total_latency
 
-if __name__ == "__main__":
-    # Parse command-line arguments
+def parse_arguments():
     parser = argparse.ArgumentParser(description="Surface code lattice partitioning and processing.")
     parser.add_argument("--size", type=int, nargs=2, default=[5, 5], help="Size of the lattice grid (rows, cols)")
     parser.add_argument("--partitions", type=int, default=8, help="Number of partitions to create")
@@ -129,37 +120,26 @@ if __name__ == "__main__":
     parser.add_argument("--num_lr", type=int, default=3, help="Number of low-complexity resources")
     parser.add_argument("--thresh_compl", type=int, default=2, help="Number of low-complexity resources")
     parser.add_argument("--time_limit", type=float, default=float('inf'), help="Time limit for running the partitions (in seconds)")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    # Create a sample lattice
-    lattice = nx.grid_2d_graph(args.size[0], args.size[1])
+def create_resources(args):
+    high_complexity_resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(args.num_hr)]
+    low_complexity_resources = [Resource(i + args.num_hr, max_complexity=args.thresh_compl, type='low') for i in range(args.num_lr)]
+    return high_complexity_resources, low_complexity_resources
 
-    # Partition the lattice into subgraphs with random complexity
-    partitions = partition_lattice(lattice, args.partitions)
-
-    # Add partition index to each partition
-    for i, (subgraph, complexity, partition_index) in enumerate(partitions):
-        partitions[i] = (subgraph, complexity, partition_index)
-
-    # Print all partitions and their associated complexities
+def print_partition_details(partitions):
     print("\nAll Partitions:")
     for subgraph, complexity, partition_index in partitions:
         print(f"Partition {partition_index}: Complexity = {complexity}")
 
-    # Create high-complexity resources
-    high_complexity_resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(args.num_hr)]
-
-    # Create low-complexity resources
-    low_complexity_resources = [Resource(i + args.num_hr, max_complexity=args.thresh_compl, type='low') for i in range(args.num_lr)]
-
+def schedule_partitions(partitions, high_complexity_resources, low_complexity_resources):
     start_time = time.time()
-    # Perform dynamic load balancing and schedule partitions (SEQUENTIAL)
     combined_resources = dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)
-    end_time = time.time()  # Record the end time
-    total_time = end_time - start_time
-    print(f"\nScheduling overhead: {total_time:.9f} seconds.")
+    end_time = time.time()
+    scheduling_overhead = end_time - start_time
+    return combined_resources, scheduling_overhead
 
-    # Estimate processing times for each resource (PARALLEL)
+def process_partitions(combined_resources):
     max_time_taken = 0
     total_accuracy = 0
 
@@ -167,7 +147,7 @@ if __name__ == "__main__":
     for resource in combined_resources:
         processed_tasks = resource.process_queue()
         resource_processing_time = resource.utilization_time
-        print(f"Resource {resource.id} ({resource.type}) estimated processing time: {resource_processing_time:.9f}")
+        print(f"Resource {resource.id} ({resource.type}) estimated processing time: {resource_processing_time:.10f}")
         max_time_taken = max(max_time_taken, resource_processing_time)
         for task, processing_time, accuracy in processed_tasks:
             print(f"Resource {resource.id} ({resource.type}) processing Partition {task.partition_index}")
@@ -176,30 +156,27 @@ if __name__ == "__main__":
             total_accuracy += accuracy
         print("\n")
 
-    # Combine all partitions in parallel
-    all_partitions = [subgraph for subgraph, _, _ in partitions]
-    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
-    print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
-    print(f"Total latency during partition combination: {total_latency:.9f} seconds.")
+    return max_time_taken, total_accuracy
 
-    print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
-
+def check_time_limit(args, max_time_taken, combined_resources):
     if max_time_taken > args.time_limit:
-        print(f"Total time exceeds the specified time limit of {args.time_limit:.9f} seconds.")
+        print(f"Total time exceeds the specified time limit of {args.time_limit:.10f} seconds.")
         exceeded_resources = [resource for resource in combined_resources if resource.utilization_time > args.time_limit]
         if exceeded_resources:
             print("Resources that exceeded the time limit:")
             for resource in exceeded_resources:
-                print(f"Resource {resource.id} ({resource.type}) took {resource.utilization_time:.9f} seconds")
+                print(f"Resource {resource.id} ({resource.type}) took {resource.utilization_time:.10f} seconds")
         else:
             print("No resource exceeded the time limit individually, but the maximum processing time exceeds the limit.")
     else:
         print("All partitions processed within the specified time limit.")
 
-    net_accuracy = total_accuracy / (args.partitions)
+def calculate_net_accuracy(total_accuracy, num_partitions):
+    net_accuracy = total_accuracy / num_partitions
     print(f"\nNet accuracy across all partitions: {net_accuracy:.2f}%")
+    return net_accuracy
 
-    # Generate Gantt chart
+def generate_gantt_chart(combined_resources, partitions, args):
     fig, ax = plt.subplots(figsize=(12, 8))
     unique_resources = list(set(combined_resources))
     num_colors = len(partitions)
@@ -236,3 +213,39 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.show()
+
+def main():
+    args = parse_arguments()
+
+    # Create a sample lattice
+    lattice = nx.grid_2d_graph(args.size[0], args.size[1])
+
+    partitions = partition_lattice(lattice, args.partitions)
+     
+    # Add partition index to each partition
+    for i, (subgraph, complexity, partition_index) in enumerate(partitions):
+        partitions[i] = (subgraph, complexity, partition_index)
+
+    print_partition_details(partitions)
+
+    high_complexity_resources, low_complexity_resources = create_resources(args)
+
+    combined_resources, scheduling_overhead = schedule_partitions(partitions, high_complexity_resources, low_complexity_resources)
+    print(f"\nScheduling overhead: {scheduling_overhead:.10f} seconds.")
+
+    max_time_taken, total_accuracy = process_partitions(combined_resources)
+    print(f"Maximum time taken by any resource: {max_time_taken:.10f}")
+    
+    # Combine all partitions in parallel
+    all_partitions = [subgraph for subgraph, _, _ in partitions]
+    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
+    print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
+    print(f"Total latency during partition combination: {total_latency:.10f} seconds.")
+
+    check_time_limit(args, max_time_taken, combined_resources) #TODO factor in combine latency here
+
+    calculate_net_accuracy(total_accuracy, args.partitions)
+    generate_gantt_chart(combined_resources, partitions, args)
+
+if __name__ == "__main__":
+    main()
