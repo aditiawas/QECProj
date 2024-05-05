@@ -56,13 +56,10 @@ def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity
                                   if complexity > low_complexity_resources[0].max_complexity]
     high_resources = least_loaded(high_complexity_partitions, high_complexity_resources, max_complexity=float('inf'))
 
-    # Assign remaining partitions to available resources
+    # Assign remaining partitions to available low-complexity resources
     remaining_partitions = [(partition, complexity, partition_index) for partition, complexity, partition_index in partitions
-                            if (partition, complexity, partition_index) not in high_resources[0].queue]
-    all_resources = high_resources + low_complexity_resources
-
-    # Distribute remaining partitions based on load
-    remaining_resources = least_loaded(remaining_partitions, all_resources, max_complexity=float('inf'))
+                            if (partition, complexity, partition_index) not in [task for resource in high_resources for task in resource.queue]]
+    remaining_resources = least_loaded(remaining_partitions, low_complexity_resources, max_complexity=low_complexity_resources[0].max_complexity)
 
     # Combine high-complexity and remaining resources
     combined_resources = high_resources + remaining_resources
