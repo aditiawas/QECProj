@@ -45,7 +45,8 @@ class Resource:
         return processed_tasks
 
 def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources):
-    # ... (existing code) ...
+    # Sort partitions by complexity in descending order
+    partitions.sort(key=lambda x: x[1], reverse=True)
 
     # Assign high-complexity partitions to high-complexity resources
     high_complexity_partitions = [(partition, complexity, partition_index) for partition, complexity, partition_index in partitions

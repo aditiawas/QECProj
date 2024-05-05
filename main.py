@@ -44,7 +44,7 @@ def partition_lattice(lattice, num_partitions):
         n = len(nodes)
 
         # Calculate the number of activated nodes based on the physical error rate
-        num_error_nodes = sum(random.random() < 0.002 for _ in range(n))
+        num_error_nodes = sum(random.random() < 0.001 for _ in range(n))
 
         # Set the complexity equal to the number of activated nodes
         complexity = num_error_nodes + 1
@@ -160,7 +160,7 @@ if __name__ == "__main__":
     fig, ax = plt.subplots(figsize=(12, 8))
     unique_resources = list(set(combined_resources))
     num_colors = len(partitions)
-    colors = plt.cm.get_cmap('rainbow', num_colors)(range(num_colors))
+    colors = plt.colormaps['rainbow'](np.linspace(0, 1, num_colors))
     y_ticks = []
     y_labels = []
 

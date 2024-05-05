@@ -1,194 +1,138 @@
-# Surface Code Lattice Partitioning and Processing
+# Lattice Partitioning and Processing Documentation
 
-This code provides functionality for partitioning a surface code lattice into subgraphs, assigning tasks to resources based on complexity, and processing the tasks using different scheduling algorithms.
+## Overview
+This code implements a system for partitioning a lattice graph into subgraphs, assigning these subgraphs to resources based on their complexity, and processing the subgraphs in parallel. The system utilizes a dynamic load balancing approach to distribute the subgraphs among high-complexity and low-complexity resources efficiently.
 
-## Table of Contents
-1. [Dependencies](#dependencies)
-2. [Classes](#classes)
-   - [Resource](#resource)
-   - [Partition](#partition)
-3. [Functions](#functions)
-   - [partition_lattice](#partition_lattice)
-   - [analyze_complexity_distribution](#analyze_complexity_distribution)
-   - [combine_partitions](#combine_partitions)
-   - [combine_partitions_parallel](#combine_partitions_parallel)
-   - [dynamic_load_balancing](#dynamic_load_balancing)
-   - [least_loaded](#least_loaded)
-   - [round_robin_schedule](#round_robin_schedule)
-   - [shortest_job_first](#shortest_job_first)
-   - [hierarchical_schedule](#hierarchical_schedule)
-   - [process_queue_wrapper](#process_queue_wrapper)
-4. [Main Execution](#main-execution)
+## Main Script (`main.py`)
+
+### Functions
+
+1. `spatial_hash(node_position, grid_size, lattice_size, num_partitions)`
+   - Calculates the spatial hash value for a given node position based on the grid size, lattice size, and the number of partitions.
+   - Returns the partition index for the node.
+
+2. `partition_lattice(lattice, num_partitions)`
+   - Partitions the input lattice into subgraphs using the spatial hash function.
+   - Adjusts the grid size dynamically to ensure all partitions are non-empty.
+   - Calculates the complexity of each subgraph based on the physical error rate.
+   - Handles shared nodes between partitions by adding them to both subgraphs.
+   - Returns a list of tuples containing each subgraph, its complexity, and partition index.
+
+3. `combine_partitions(subgraph1, subgraph2)`
+   - Combines two subgraphs into a single graph.
+   - Adds nodes and edges from both subgraphs to the combined graph.
+   - Returns the combined graph.
+
+4. `combine_partitions_parallel(subgraphs)`
+   - Combines all subgraphs in parallel by combining pairs of subgraphs using a pool of workers.
+   - Recursively combines subgraphs until only one subgraph remains.
+   - Returns the final combined subgraph.
+
+### Main Execution
+
+1. Parse command-line arguments:
+   - `--size`: Size of the lattice grid (rows, cols). Default: [5, 5].
+   - `--partitions`: Number of partitions to create. Default: 8.
+   - `--num_hr`: Number of high-complexity resources. Default: 2.
+   - `--num_lr`: Number of low-complexity resources. Default: 3.
+   - `--thresh_compl`: Number of low-complexity resources. Default: 2.
+
+2. Create a sample lattice using the specified size.
+
+3. Partition the lattice into subgraphs with random complexity using `partition_lattice()`.
+
+4. Create high-complexity and low-complexity resources based on the command-line arguments.
+
+5. Perform dynamic load balancing and schedule partitions sequentially using `dynamic_load_balancing()`.
+
+6. Print the scheduling overhead.
+
+7. Print all partitions and their associated complexities.
+
+8. Estimate processing times for each resource in parallel.
+
+9. Generate a Gantt chart to visualize the partition execution timeline.
+
+10. Combine all partitions in parallel using `combine_partitions_parallel()`.
+
+11. Print the lattice formation time and the number of nodes in the combined lattice.
+
+12. Print the maximum time taken by any resource.
+
+## Resource Class (`Resource.py`)
+
+### Class: `Resource`
+
+#### Attributes
+- `id`: Unique identifier for the resource.
+- `max_complexity`: Maximum complexity the resource can handle.
+- `type`: Type of the resource ('high' or 'low').
+- `load`: Current load on the resource.
+- `queue`: Queue of tasks assigned to the resource.
+- `processing_time`: Total processing time of tasks assigned to the resource.
+- `start_time`: Start time of task processing.
+- `tasks`: List of tasks assigned to the resource.
+- `utilization_time`: Total utilization time of the resource.
+- `max_time_taken`: Maximum time taken by the resource.
+- `processed_tasks`: Set of tasks already processed by the resource.
+
+#### Methods
+- `can_handle(complexity)`: Checks if the resource can handle a given complexity.
+- `assign_task(task)`: Assigns a task to the resource's queue and updates the load.
+- `estimate_processing_time(task)`: Estimates the processing time for a task based on its complexity and the resource type.
+- `process_queue()`: Processes the tasks in the resource's queue and returns the processed tasks and their processing times.
+
+### Functions
+
+1. `dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)`
+   - Sorts partitions by complexity in descending order.
+   - Assigns high-complexity partitions to high-complexity resources using `least_loaded()`.
+   - Assigns remaining partitions to available resources based on load using `least_loaded()`.
+   - Returns the combined list of resources.
+
+2. `least_loaded(partitions, resources, max_complexity)`
+   - Assigns partitions to the least loaded compatible resource.
+   - Skips partitions that cannot be handled by any resource.
+   - Returns the updated list of resources.
+
+## Partition Class (`Resource.py`)
+
+### Class: `Partition`
+
+#### Attributes
+- `nodes`: Nodes in the partition subgraph.
+- `complexity`: Complexity of the partition.
+- `partition_index`: Index of the partition.
+
+#### Methods
+- `__len__()`: Returns the number of nodes in the partition.
+
+## Usage
+
+1. Run the main script with the desired command-line arguments:
+   ```
+   python main.py --size 5 5 --partitions 8 --num_hr 2 --num_lr 3 --thresh_compl 2
+   ```
+
+2. The script will partition the lattice, assign partitions to resources, and process the partitions in parallel.
+
+3. The output will include:
+   - All partitions and their associated complexities.
+   - Scheduling overhead.
+   - Estimated processing times for each resource.
+   - Gantt chart visualizing the partition execution timeline.
+   - Lattice formation time and the number of nodes in the combined lattice.
+   - Maximum time taken by any resource.
 
 ## Dependencies
+- `networkx`: Graph library for creating and manipulating the lattice graph.
+- `random`: Library for generating random numbers.
+- `multiprocessing`: Library for parallel processing.
+- `argparse`: Library for parsing command-line arguments.
+- `math`: Library for mathematical operations.
+- `time`: Library for measuring execution time.
+- `matplotlib`: Library for generating the Gantt chart.
+- `numpy`: Library for numerical operations.
+- `Resource`: Custom module containing the `Resource` and `Partition` classes.
 
-The code relies on the following dependencies:
-- `networkx`: For creating and manipulating graphs.
-- `random`: For generating random complexity values.
-- `time`: For simulating processing time.
-- `multiprocessing`: For parallel processing of tasks.
-- `argparse`: For parsing command-line arguments.
-- `collections.deque`: For efficient queue operations.
-
-## Classes
-
-### Resource
-
-The `Resource` class represents a resource that can process tasks. It has the following attributes:
-- `id`: The unique identifier of the resource.
-- `max_complexity`: The maximum complexity the resource can handle.
-- `type`: The type of the resource (e.g., 'high' or 'low').
-- `load`: The current load on the resource.
-- `queue`: A deque of tasks assigned to the resource.
-- `processing_time`: The total processing time of tasks by the resource.
-- `start_time`: The start time of processing tasks.
-
-The `Resource` class provides the following methods:
-- `can_handle(complexity)`: Checks if the resource can handle a given complexity.
-- `assign_task(task)`: Assigns a task to the resource's queue.
-- `process_task(task)`: Processes a task based on its complexity and the resource's type.
-- `process_queue()`: Processes all tasks in the resource's queue.
-
-### Partition
-
-The `Partition` class represents a partition of the surface code lattice. It has the following attributes:
-- `nodes`: The nodes of the subgraph representing the partition.
-- `complexity`: The complexity of the partition.
-
-## Functions
-
-### partition_lattice
-
-```python
-def partition_lattice(lattice, num_partitions):
-    """
-    Partition the given surface code lattice into num_partitions subgraphs.
-    
-    Args:
-        lattice (nx.Graph): The surface code lattice graph.
-        num_partitions (int): The number of partitions to create.
-        
-    Returns:
-        list: A list of subgraphs representing the partitions along with their complexity.
-    """
-```
-
-This function partitions the given surface code lattice into `num_partitions` subgraphs. It assigns nodes to partitions in a round-robin fashion and creates subgraphs from the node lists. It also calculates the complexity of each partition based on the maximum number of edges in a complete subgraph.
-
-### analyze_complexity_distribution
-
-```python
-def analyze_complexity_distribution(complexities, target_percentage=0.8):
-    """
-    Analyze the distribution of partition complexities and identify the value `X`
-    where `target_percentage` (e.g., 80% or 90%) of partitions have a complexity less than or equal to `X`.
-
-    Args:
-        complexities (list): A list of partition complexities.
-        target_percentage (float): The target percentage of partitions to consider (default: 0.8 or 80%).
-
-    Returns:
-        int: The value `X` where `target_percentage` of partitions have a complexity less than or equal to `X`.
-    """
-```
-
-This function analyzes the distribution of partition complexities and identifies the value `X` where `target_percentage` (default: 80%) of partitions have a complexity less than or equal to `X`. It sorts the complexities in ascending order and returns the complexity at the target index.
-
-### combine_partitions
-
-```python
-def combine_partitions(subgraph1, subgraph2):
-    """
-    Combine two subgraphs by merging their nodes and edges.
-
-    Args:
-        subgraph1 (nx.Graph): The first subgraph.
-        subgraph2 (nx.Graph): The second subgraph.
-
-    Returns:
-        nx.Graph: The combined subgraph.
-    """
-```
-
-This function combines two subgraphs by merging their nodes and edges. It creates a new graph and adds the nodes and edges from both subgraphs to the combined graph. It also simulates processing time proportional to the number of boundary nodes between the subgraphs.
-
-### combine_partitions_parallel
-
-```python
-def combine_partitions_parallel(subgraphs):
-    """
-    Combine all subgraphs in parallel by combining pairs of subgraphs using a pool of workers.
-
-    Args:
-        subgraphs (list): A list of subgraphs to be combined.
-
-    Returns:
-        nx.Graph: The combined subgraph.
-    """
-```
-
-This function combines all subgraphs in parallel by combining pairs of subgraphs using a pool of workers. It iteratively combines pairs of subgraphs until only one subgraph remains, which represents the combined lattice.
-
-### dynamic_load_balancing
-
-```python
-def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources):
-```
-
-This function performs dynamic load balancing by assigning partitions to resources based on their complexity. It first assigns high-complexity partitions to high-complexity resources, and then assigns the remaining partitions to available resources based on their load. It returns a list of combined resources.
-
-### least_loaded
-
-```python
-def least_loaded(partitions, resources, max_complexity):
-```
-
-This function assigns partitions to the least loaded compatible resource. It iterates over the partitions and finds the least loaded resource that can handle the partition's complexity. It assigns the partition to the resource's queue and updates the resource's load.
-
-### round_robin_schedule
-
-```python
-def round_robin_schedule(partitions, num_resources):
-```
-
-This function schedules partitions using a round-robin approach. It creates a specified number of resources and assigns partitions to resources in a round-robin manner. It processes the tasks in each resource's queue and returns the list of resources.
-
-### shortest_job_first
-
-```python
-def shortest_job_first(partitions, num_resources):
-```
-
-This function schedules partitions using the shortest job first approach. It creates a specified number of resources and assigns partitions to the least loaded resource based on their complexity. It processes each task immediately after assignment and returns the list of resources.
-
-### hierarchical_schedule
-
-```python
-def hierarchical_schedule(partitions, high_complexity_resources, low_complexity_resources, complexity_threshold):
-```
-
-This function performs hierarchical scheduling of partitions. It assigns high-complexity partitions to high-complexity resources, low-complexity partitions to low-complexity resources, and any remaining unassigned partitions to any available resource. It processes the tasks in each resource's queue and returns the lists of high-complexity and low-complexity resources.
-
-### process_queue_wrapper
-
-```python
-def process_queue_wrapper(resource):
-```
-
-This function is a wrapper for the `process_queue` method of the `Resource` class. It is used for parallel processing of tasks using multiprocessing.
-
-## Main Execution
-
-The main execution of the code performs the following steps:
-1. Parses command-line arguments for the size of the lattice grid, number of partitions, number of high-complexity resources, and number of low-complexity resources.
-2. Creates a sample lattice using the specified grid size.
-3. Partitions the lattice into subgraphs with random complexity.
-4. Analyzes the distribution of partition complexities and identifies the value `X` where 90% of partitions have a complexity less than or equal to `X`.
-5. Creates high-complexity and low-complexity resources.
-6. Performs dynamic load balancing and schedules partitions to resources.
-7. Processes queues in parallel using multiprocessing.
-8. Prints which partition was processed on which resource.
-9. Combines all partitions in parallel to form the combined lattice.
-10. Prints the number of nodes in the combined lattice and the total time taken for execution.
-
-The main execution provides an example of how to use the various functions and classes defined in the code for partitioning a surface code lattice, assigning tasks to resources, and processing the tasks using different scheduling algorithms.
+Please ensure that all the required dependencies are installed before running the code.
