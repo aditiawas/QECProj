@@ -88,7 +88,7 @@ This file defines the `Resource` class, which represents a processing resource (
 
 ### Experiments.py
 
-This file contains functions for performing experimental analysis on the surface code lattice partitioning and processing system. It includes experiments for:
+This file contains functions for performing experimental analysis on the surface code lattice partitioning and processing system. Upon running the script, you will be presented with a menu of available experiments. It includes experiments for:
 - Lattice size vs maximum time taken
 - Number of partitions vs net accuracy and maximum time taken
 - Resource configuration (number of high-complexity and low-complexity resources) vs maximum time taken and accuracy

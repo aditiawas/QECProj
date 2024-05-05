@@ -202,9 +202,31 @@ def time_lim_change():
     cbar.set_ticklabels(['Exceeded Limit','Within Limit'])
     plt.show()
 
+def main():
+    print("\nChoose an experiment to run:")
+    print("1. Lattice Size vs Maximum Time Taken")
+    print("2. Number of Partitions vs Net Accuracy and Maximum Time Taken")
+    print("3. Resource Configuration vs Maximum Time Taken and Accuracy")
+    print("4. Threshold for Low-Complexity Resources vs Latency")
+    print("5. Time Limit vs Maximum Time Taken")
+    print("6. Exit")
+
+    choice = input("Enter your choice (1-6): ")
+
+    if choice == "1":
+        size_change()
+    elif choice == "2":
+        partition_num_change()
+    elif choice == "3":
+        res_num_change()
+    elif choice == "4":
+        thresh_compl_change()
+    elif choice == "5":
+        time_lim_change()
+    elif choice == "6":
+        print("Exiting...")
+    else:
+        print("Invalid choice. Please try again.")
+
 if __name__ == "__main__":
-    #size_change()
-    #partition_num_change()
-    #res_num_change()
-    #thresh_compl_change()
-    time_lim_change()
+    main()
