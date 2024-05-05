@@ -4,65 +4,66 @@ import multiprocessing
 import argparse
 import math
 import time
+import matplotlib.pyplot as plt
+import numpy as np
 from Resource import *
 
-def spatial_hash(node_position, grid_size, lattice_size):
+def spatial_hash(node_position, grid_size, lattice_size, num_partitions):
     x, y = node_position
-    grid_x = x // grid_size
-    grid_y = y // grid_size
-    # Combine grid_x and grid_y into a single index
-    index = grid_x + grid_y * lattice_size
-    return int(index)
+    grid_x = int(x // grid_size)
+    grid_y = int(y // grid_size)
+    partition_index = (grid_x + grid_y * (lattice_size // grid_size)) % num_partitions
+    return int(partition_index)
 
 def partition_lattice(lattice, num_partitions):
     num_nodes = len(lattice.nodes)
     lattice_size = int(math.sqrt(num_nodes))
 
-    grid_size = lattice_size / math.sqrt(num_partitions)
-
-    nodes_per_partition, remainder = divmod(num_nodes, num_partitions)
     partitions = [set() for _ in range(num_partitions)]
 
-    for node in lattice.nodes:
-        row, col = node
-        node_position = (row, col)  # Assuming the node's position is represented by its row and column indices
-        partition_index = spatial_hash(node_position, grid_size, lattice_size) % num_partitions
-        partitions[partition_index].add(node)
+    # Start with an initial grid size
+    grid_size = lattice_size / math.sqrt(num_partitions)
 
-    # Remove empty partitions
-    partitions = [nodes for nodes in partitions if nodes]
+    # Iterate until all partitions are non-empty
+    while any(len(partition) == 0 for partition in partitions):
+        partitions = [set() for _ in range(num_partitions)]
+        for node in lattice.nodes:
+            row, col = node
+            node_position = (row, col)
+            partition_index = spatial_hash(node_position, grid_size, lattice_size, num_partitions)
+            partitions[partition_index].add(node)
+
+        # If there are empty partitions, reduce the grid size and try again
+        if any(len(partition) == 0 for partition in partitions):
+            grid_size /= 2
 
     subgraphs = []
+    partition_index = 0
     for nodes in partitions:
         subgraph = lattice.subgraph(nodes)
         n = len(nodes)
 
         # Calculate the number of activated nodes based on the physical error rate
-        num_error_nodes = sum(random.random() < 0.001 for _ in range(n))
+        num_error_nodes = sum(random.random() < 0.002 for _ in range(n))
 
         # Set the complexity equal to the number of activated nodes
-        complexity = num_error_nodes
+        complexity = num_error_nodes + 1
 
-        subgraphs.append((subgraph, complexity))
+        subgraphs.append((subgraph, complexity, partition_index))
+        partition_index += 1
 
     # Check for shared nodes between partitions
     for i in range(len(partitions)):
         for j in range(i + 1, len(partitions)):
             shared_nodes = partitions[i] & partitions[j]
             if shared_nodes:
-                subgraph1, complexity1 = subgraphs[i]
-                subgraph2, complexity2 = subgraphs[j]
+                subgraph1, complexity1, _ = subgraphs[i]
+                subgraph2, complexity2, _ = subgraphs[j]
 
-                # Check if either subgraph is empty
-                if not subgraph1.nodes:
-                    subgraphs[i] = (subgraph2, complexity2)
-                elif not subgraph2.nodes:
-                    subgraphs[j] = (subgraph1, complexity1)
-                else:
-                    subgraph1.add_nodes_from(shared_nodes)
-                    subgraph2.add_nodes_from(shared_nodes)
-                    subgraphs[i] = (subgraph1, complexity1)
-                    subgraphs[j] = (subgraph2, complexity2)
+                subgraph1.add_nodes_from(shared_nodes)
+                subgraph2.add_nodes_from(shared_nodes)
+                subgraphs[i] = (subgraph1, complexity1, i)
+                subgraphs[j] = (subgraph2, complexity2, j)
 
     return subgraphs
 
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     parser.add_argument("--partitions", type=int, default=8, help="Number of partitions to create")
     parser.add_argument("--num_hr", type=int, default=2, help="Number of high-complexity resources")
     parser.add_argument("--num_lr", type=int, default=3, help="Number of low-complexity resources")
-    parser.add_argument("--thresh_compl", type=int, default=6, help="Number of low-complexity resources")
+    parser.add_argument("--thresh_compl", type=int, default=2, help="Number of low-complexity resources")
     args = parser.parse_args()
 
     # Create a sample lattice
@@ -113,6 +114,15 @@ if __name__ == "__main__":
     # Partition the lattice into subgraphs with random complexity
     partitions = partition_lattice(lattice, args.partitions)
 
+    # Add partition index to each partition
+    for i, (subgraph, complexity, partition_index) in enumerate(partitions):
+        partitions[i] = (subgraph, complexity, partition_index)
+
+    # Print all partitions and their associated complexities
+    print("\nAll Partitions:")
+    for subgraph, complexity, partition_index in partitions:
+        print(f"Partition {partition_index}: Complexity = {complexity}")
+
     # Create high-complexity resources
     high_complexity_resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(args.num_hr)]
 
@@ -120,28 +130,68 @@ if __name__ == "__main__":
     low_complexity_resources = [Resource(i + args.num_hr, max_complexity=args.thresh_compl, type='low') for i in range(args.num_lr)]
 
     start_time = time.time()
-    # Perform dynamic load balancing and schedule partitions
+    # Perform dynamic load balancing and schedule partitions (SEQUENTIAL)
     combined_resources = dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)
     end_time = time.time()  # Record the end time
     total_time = end_time - start_time
     print(f"\nScheduling overhead: {total_time:.9f} seconds.")
 
-    # Estimate processing times for each resource
+    # Print all partitions and their associated complexities
+    print("\nAll Partitions:")
+    for subgraph, complexity, partition_index in partitions:
+        print(f"Partition {partition_index}: Complexity = {complexity}")
+
+    # Estimate processing times for each resource (PARALLEL)
     max_time_taken = 0
 
     print("\nPartition Processing:")
     for resource in combined_resources:
-        #print(f"Resource {resource.id} ({resource.type}):")
-        resource.process_queue()
+        processed_tasks = resource.process_queue()
+        total_processing_time = sum(processing_time for _, processing_time in processed_tasks)
+        print(f"Resource {resource.id} ({resource.type}) estimated processing time: {total_processing_time:.9f}")
         print(f"Resource {resource.id} ({resource.type}) utilization time: {resource.utilization_time:.9f}")
-        max_time_taken = max(max_time_taken, resource.max_time_taken)
-        for task in resource.queue:
-            print(f"  Partition with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
+        max_time_taken = max(max_time_taken, resource.utilization_time)
+        for task, processing_time in processed_tasks:
+            print(f"Resource {resource.id} ({resource.type}) processing Partition {task.partition_index}")
+            print(f"  Partition {task.partition_index} with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
         print("\n")
+
+    # Generate Gantt chart
+    fig, ax = plt.subplots(figsize=(12, 8))
+    unique_resources = list(set(combined_resources))
+    num_colors = len(partitions)
+    colors = plt.cm.get_cmap('rainbow', num_colors)(range(num_colors))
+    y_ticks = []
+    y_labels = []
+
+    for i, resource in enumerate(unique_resources):
+        for task_start, task_end, task in resource.tasks:
+            partition_index = task.partition_index
+            ax.broken_barh([(task_start, task_end - task_start)], (i - 0.4, 0.8), color=colors[partition_index % num_colors])
+            ax.text(task_start + (task_end - task_start) / 2, i, f"P{partition_index}", ha='center', va='center', color='black', fontsize=10)
+
+        y_ticks.append(i)
+        y_labels.append(f"Resource {resource.id} ({resource.type})")
+
+    ax.set_ylim(-0.5, len(unique_resources) - 0.5)
+    ax.set_yticks(y_ticks)
+    ax.set_yticklabels(y_labels)
+    ax.set_xlabel('Time')
+    ax.set_title('Partition Execution Gantt Chart')
+    ax.grid(True)
+
+    # Add legend
+    partition_indices = [partition_index for _, _, partition_index in partitions]
+    legend_labels = [f"Partition {index}" for index in partition_indices]
+    legend_handles = [plt.Rectangle((0, 0), 1, 1, color=colors[index % num_colors]) for index in partition_indices]
+    ax.legend(legend_handles, legend_labels, loc='upper right', title='Partitions', ncol=2)
+
+    plt.tight_layout()
+    plt.show()
 
     start_time = time.time()
     # Combine all partitions in parallel
-    all_partitions = [subgraph for subgraph, _ in partitions]
+    all_partitions = [subgraph for subgraph, _, _ in partitions]  # Update the list comprehension
     combined_lattice = combine_partitions_parallel(all_partitions)
     end_time = time.time()  # Record the end time
     total_time = end_time - start_time
