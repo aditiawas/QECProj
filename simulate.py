@@ -130,7 +130,7 @@ def combine_partitions_parallel(subgraphs, original_lattice):
 
     return subgraphs[0], total_latency
 
-def parse_arguments():
+def parse_arguments(args_list=None):
     parser = argparse.ArgumentParser(description="Surface code lattice partitioning and processing.")
     parser.add_argument("--size", type=int, nargs=2, default=[5, 5], help="Size of the lattice grid (rows, cols)")
     parser.add_argument("--partitions", type=int, default=8, help="Number of partitions to create")
@@ -138,7 +138,13 @@ def parse_arguments():
     parser.add_argument("--num_lr", type=int, default=3, help="Number of low-complexity resources")
     parser.add_argument("--thresh_compl", type=int, default=2, help="Number of low-complexity resources")
     parser.add_argument("--time_limit", type=float, default=float('inf'), help="Time limit for running the partitions (in seconds)")
-    return parser.parse_args()
+
+    if args_list:
+        args = parser.parse_args(args_list)
+    else:
+        args = parser.parse_args()
+
+    return args
 
 def create_resources(args):
     high_complexity_resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(args.num_hr)]
@@ -232,9 +238,7 @@ def generate_gantt_chart(combined_resources, partitions, args):
     plt.tight_layout()
     plt.show()
 
-def main():
-    args = parse_arguments()
-
+def main_func(args):
     # Create a sample lattice
     lattice = nx.grid_2d_graph(args.size[0], args.size[1])
 
@@ -256,14 +260,20 @@ def main():
     
     # Combine all partitions in parallel
     all_partitions = [subgraph for subgraph, _, _ in partitions]
-    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
+    combined_lattice, comb_latency = combine_partitions_parallel(all_partitions, lattice)
     print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
-    print(f"Total latency during partition combination: {total_latency:.10f} seconds.")
+    print(f"Total latency during partition combination: {comb_latency:.10f} seconds.")
+
+    max_time_taken += comb_latency
+    print(f"Total time: {max_time_taken:.10f}")
 
     check_time_limit(args, max_time_taken, combined_resources) #TODO factor in combine latency here
 
-    calculate_net_accuracy(total_accuracy, args.partitions)
-    generate_gantt_chart(combined_resources, partitions, args)
+    net_accuracy = calculate_net_accuracy(total_accuracy, args.partitions)
+
+    return (combined_resources, partitions, args, max_time_taken, net_accuracy)
 
 if __name__ == "__main__":
-    main()
+    args = parse_arguments()
+    combined_resources, partitions, args, max_time_taken = main_func(args)
+    generate_gantt_chart(combined_resources, partitions, args)
