@@ -3,137 +3,145 @@
 Command to run\
 python3 main.py --size 100 100 --partitions 10 --thresh_compl 3 --time_limit 0.00000005
 
-## Overview
-This code implements a system for partitioning a surface code lattice into subgraphs, assigning these subgraphs to decoding units (resources) based on their complexity (number of nodes in syndrome graph), and processing the syndrome graphs in parallel. The system utilizes a dynamic load balancing approach to distribute the decosding of partitions among high-complexity-handling units and low-complexity-handling units efficiently.
+# Surface Code Lattice Partitioning and Processing
 
-## Main Script (`main.py`)
+This project implements a system for partitioning and processing a surface code lattice using high-complexity and low-complexity resources. The system aims to optimize the scheduling and processing of partitions to maximize accuracy and minimize latency.
 
-### Functions
+## Table of Contents
 
-1. `spatial_hash(node_position, grid_size, lattice_size, num_partitions)`
-   - Calculates the spatial hash value for a given node position based on the grid size, lattice size, and the number of partitions.
-   - Returns the partition index for the node.
+1. [Features](#features)
+2. [Installation](#installation)
+3. [Usage](#usage)
+4. [Code Structure](#code-structure)
+   - [simulate.py](#simulate.py)
+   - [Resource.py](#resource.py)
+   - [Experiments.py](#experiments.py)
+5. [Algorithms and Techniques](#algorithms-and-techniques)
+   - [Spatial Hash Partitioning](#spatial-hash-partitioning)
+   - [Dynamic Load Balancing](#dynamic-load-balancing)
+   - [Parallel Partition Combination](#parallel-partition-combination)
+6. [Experimental Analysis](#experimental-analysis)
+   - [Lattice Size vs Maximum Time Taken](#lattice-size-vs-maximum-time-taken)
+   - [Number of Partitions vs Net Accuracy and Maximum Time Taken](#number-of-partitions-vs-net-accuracy-and-maximum-time-taken)
+   - [Resource Configuration vs Maximum Time Taken and Accuracy](#resource-configuration-vs-maximum-time-taken-and-accuracy)
+   - [Threshold for Low-Complexity Resources vs Latency](#threshold-for-low-complexity-resources-vs-latency)
+   - [Time Limit vs Maximum Time Taken](#time-limit-vs-maximum-time-taken)
+7. [License](#license)
 
-2. `partition_lattice(lattice, num_partitions)`
-   - Partitions the input lattice into subgraphs using the spatial hash function.
-   - Adjusts the grid size dynamically to ensure all partitions are non-empty.
-   - Calculates the complexity of each subgraph based on the physical error rate.
-   - Handles shared nodes between partitions by adding them to both subgraphs.
-   - Returns a list of tuples containing each subgraph, its complexity, and partition index.
+## Features
 
-3. `combine_partitions(subgraph1, subgraph2)`
-   - Combines two subgraphs into a single graph.
-   - Adds nodes and edges from both subgraphs to the combined graph.
-   - Returns the combined graph.
+- Partitioning of a surface code lattice using spatial hash partitioning
+- Dynamic load balancing for scheduling partitions to high-complexity and low-complexity resources
+- Parallel combination of partitions to form the final lattice
+- Estimation of processing times and accuracies for each partition
+- Gantt chart visualization of partition execution
+- Experimental analysis of various system parameters and their impact on performance
 
-4. `combine_partitions_parallel(subgraphs)`
-   - Combines all subgraphs in parallel by combining pairs of subgraphs using a pool of workers.
-   - Recursively combines subgraphs until only one subgraph remains.
-   - Returns the final combined subgraph.
+## Installation
 
-### Main Execution
-
-1. Parse command-line arguments:
-   - `--size`: Size of the lattice grid (rows, cols). Default: [5, 5].
-   - `--partitions`: Number of partitions to create. Default: 8.
-   - `--num_hr`: Number of high-complexity resources. Default: 2.
-   - `--num_lr`: Number of low-complexity resources. Default: 3.
-   - `--thresh_compl`: Number of low-complexity resources. Default: 2.
-
-2. Create a sample lattice using the specified size.
-
-3. Partition the lattice into subgraphs with random complexity using `partition_lattice()`.
-
-4. Create high-complexity and low-complexity resources based on the command-line arguments.
-
-5. Perform dynamic load balancing and schedule partitions sequentially using `dynamic_load_balancing()`.
-
-6. Print the scheduling overhead.
-
-7. Print all partitions and their associated complexities.
-
-8. Estimate processing times for each resource in parallel.
-
-9. Generate a Gantt chart to visualize the partition execution timeline.
-
-10. Combine all partitions in parallel using `combine_partitions_parallel()`.
-
-11. Print the lattice formation time and the number of nodes in the combined lattice.
-
-12. Print the maximum time taken by any resource.
-
-## Resource Class (`Resource.py`)
-
-### Class: `Resource`
-
-#### Attributes
-- `id`: Unique identifier for the resource.
-- `max_complexity`: Maximum complexity the resource can handle.
-- `type`: Type of the resource ('high' or 'low').
-- `load`: Current load on the resource.
-- `queue`: Queue of tasks assigned to the resource.
-- `processing_time`: Total processing time of tasks assigned to the resource.
-- `start_time`: Start time of task processing.
-- `tasks`: List of tasks assigned to the resource.
-- `utilization_time`: Total utilization time of the resource.
-- `max_time_taken`: Maximum time taken by the resource.
-- `processed_tasks`: Set of tasks already processed by the resource.
-
-#### Methods
-- `can_handle(complexity)`: Checks if the resource can handle a given complexity.
-- `assign_task(task)`: Assigns a task to the resource's queue and updates the load.
-- `estimate_processing_time(task)`: Estimates the processing time for a task based on its complexity and the resource type.
-- `process_queue()`: Processes the tasks in the resource's queue and returns the processed tasks and their processing times.
-
-### Functions
-
-1. `dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources)`
-   - Sorts partitions by complexity in descending order.
-   - Assigns high-complexity partitions to high-complexity resources using `least_loaded()`.
-   - Assigns remaining partitions to available resources based on load using `least_loaded()`.
-   - Returns the combined list of resources.
-
-2. `least_loaded(partitions, resources, max_complexity)`
-   - Assigns partitions to the least loaded compatible resource.
-   - Skips partitions that cannot be handled by any resource.
-   - Returns the updated list of resources.
-
-## Partition Class (`Resource.py`)
-
-### Class: `Partition`
-
-#### Attributes
-- `nodes`: Nodes in the partition subgraph.
-- `complexity`: Complexity of the partition.
-- `partition_index`: Index of the partition.
-
-#### Methods
-- `__len__()`: Returns the number of nodes in the partition.
+1. Clone the repository:
+   ```
+   git clone https://github.com/aditiawas/QECProj.git
+   ```
+2. Install the required dependencies:
+   ```
+   pip install -r requirements.txt
+   ```
 
 ## Usage
 
-1. Run the main script with the desired command-line arguments:
+1. Run the `simulate.py` script with the desired command-line arguments:
    ```
-   python main.py --size 5 5 --partitions 8 --num_hr 2 --num_lr 3 --thresh_compl 2
+   python simulate.py --size 100 100 --partitions 8 --num_hr 2 --num_lr 3 --thresh_compl 3 --time_limit 0.00000005
+   ```
+   - `--size`: Size of the lattice grid (rows, cols)
+   - `--partitions`: Number of partitions to create
+   - `--num_hr`: Number of high-complexity resources
+   - `--num_lr`: Number of low-complexity resources
+   - `--thresh_compl`: Threshold for low-complexity resources
+   - `--time_limit`: Time limit for running the partitions (in seconds)
+
+2. Run the `Experiments.py` script to perform experimental analysis:
+   ```
+   python Experiments.py
    ```
 
-2. The script will partition the lattice, assign partitions to resources, and process the partitions in parallel.
+## Code Structure
 
-3. The output will include:
-   - All partitions and their associated complexities.
-   - Scheduling overhead.
-   - Estimated processing times for each resource.
-   - Gantt chart visualizing the partition execution timeline.
-   - Lattice formation time and the number of nodes in the combined lattice.
-   - Maximum time taken by any resource.
+### simulate.py
 
-## Dependencies
-- `networkx`: Graph library for creating and manipulating the lattice graph.
-- `random`: Library for generating random numbers.
-- `multiprocessing`: Library for parallel processing.
-- `argparse`: Library for parsing command-line arguments.
-- `math`: Library for mathematical operations.
-- `time`: Library for measuring execution time.
-- `matplotlib`: Library for generating the Gantt chart.
-- `numpy`: Library for numerical operations.
-- `Resource`: Custom module containing the `Resource` and `Partition` classes.
+This file contains the main simulation code for partitioning and processing the surface code lattice. It includes functions for:
+- Parsing command-line arguments
+- Creating the lattice and partitioning it using spatial hash partitioning
+- Creating high-complexity and low-complexity resources
+- Scheduling partitions to resources using dynamic load balancing
+- Processing partitions and estimating their processing times and accuracies
+- Combining partitions in parallel to form the final lattice
+- Generating a Gantt chart visualization of partition execution
+
+### Resource.py
+
+This file defines the `Resource` class, which represents a processing resource (either high-complexity or low-complexity). It includes methods for:
+- Assigning tasks (partitions) to the resource
+- Estimating the processing time for a task
+- Processing the assigned tasks and updating the resource's utilization time
+
+### Experiments.py
+
+This file contains functions for performing experimental analysis on the surface code lattice partitioning and processing system. It includes experiments for:
+- Lattice size vs maximum time taken
+- Number of partitions vs net accuracy and maximum time taken
+- Resource configuration (number of high-complexity and low-complexity resources) vs maximum time taken and accuracy
+- Threshold for low-complexity resources vs latency
+- Time limit vs maximum time taken
+
+## Algorithms and Techniques
+
+### Spatial Hash Partitioning
+
+The spatial hash partitioning algorithm is used to divide the surface code lattice into smaller partitions. It works by:
+1. Defining a grid size based on the desired number of partitions and the lattice size.
+2. Assigning each node in the lattice to a partition based on its spatial coordinates and the grid size.
+3. Ensuring that neighboring nodes are assigned to the same partition to maintain locality.
+
+### Dynamic Load Balancing
+
+The dynamic load balancing algorithm is used to schedule partitions to high-complexity and low-complexity resources. It works by:
+1. Sorting the partitions by complexity in descending order.
+2. Assigning high-complexity partitions to high-complexity resources using the least-loaded approach.
+3. Assigning the remaining partitions to available low-complexity resources using the least-loaded approach.
+
+### Parallel Partition Combination
+
+The parallel partition combination algorithm is used to combine the processed partitions into the final lattice. It works by:
+1. Combining pairs of partitions in parallel using a pool of worker processes.
+2. Merging the subgraphs of the partitions and removing duplicate nodes.
+3. Calculating the total boundary nodes and latency during the combination process.
+
+## Experimental Analysis
+
+The `Experiments.py` script performs various experiments to analyze the performance of the surface code lattice partitioning and processing system. The experiments include:
+
+### Lattice Size vs Maximum Time Taken
+
+This experiment investigates the relationship between the lattice size and the maximum time taken by any resource to process the partitions. It varies the lattice size while keeping other parameters fixed and plots the results.
+
+### Number of Partitions vs Net Accuracy and Maximum Time Taken
+
+This experiment explores the impact of the number of partitions on the net accuracy and maximum time taken. It varies the number of partitions while keeping other parameters fixed and plots the results.
+
+### Resource Configuration vs Maximum Time Taken and Accuracy
+
+This experiment analyzes the effect of different resource configurations (number of high-complexity and low-complexity resources) on the maximum time taken and accuracy. It varies the number of high-complexity and low-complexity resources and creates scatter plots to visualize the results.
+
+### Threshold for Low-Complexity Resources vs Latency
+
+This experiment examines the relationship between the threshold for low-complexity resources and the latency. It varies the threshold value while keeping other parameters fixed and plots the results.
+
+### Time Limit vs Maximum Time Taken
+
+This experiment investigates the impact of the time limit on the maximum time taken by any resource. It varies the time limit and plots the maximum time taken, indicating whether the time limit was exceeded or not.
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
