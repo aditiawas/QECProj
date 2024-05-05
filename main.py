@@ -86,7 +86,7 @@ def combine_partitions(subgraph1, subgraph2, original_lattice):
             node_positions.add(node)
 
     # Calculate latency based on the number of shared nodes
-    latency = 2 * shared_nodes * (10 ** -8)
+    latency = 2 * shared_nodes * (10 ** -10)
 
     return combined_graph, latency
 
@@ -161,6 +161,7 @@ if __name__ == "__main__":
 
     # Estimate processing times for each resource (PARALLEL)
     max_time_taken = 0
+    total_accuracy = 0
 
     print("\nPartition Processing:")
     for resource in combined_resources:
@@ -168,9 +169,11 @@ if __name__ == "__main__":
         resource_processing_time = resource.utilization_time
         print(f"Resource {resource.id} ({resource.type}) estimated processing time: {resource_processing_time:.9f}")
         max_time_taken = max(max_time_taken, resource_processing_time)
-        for task, processing_time in processed_tasks:
+        for task, processing_time, accuracy in processed_tasks:
             print(f"Resource {resource.id} ({resource.type}) processing Partition {task.partition_index}")
             print(f"  Partition {task.partition_index} with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
+            print(f"  Accuracy: {accuracy}%")
+            total_accuracy += accuracy
         print("\n")
 
     # Combine all partitions in parallel
@@ -193,7 +196,10 @@ if __name__ == "__main__":
     else:
         print("All partitions processed within the specified time limit.")
 
-# Generate Gantt chart
+    net_accuracy = total_accuracy / (args.partitions)
+    print(f"\nNet accuracy across all partitions: {net_accuracy:.2f}%")
+
+    # Generate Gantt chart
     fig, ax = plt.subplots(figsize=(12, 8))
     unique_resources = list(set(combined_resources))
     num_colors = len(partitions)

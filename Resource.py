@@ -25,9 +25,9 @@ class Resource:
     def estimate_processing_time(self, task):
         if self.type == 'high':
             if task.complexity <= self.max_complexity:
-                processing_time = (task.complexity ** 3) * (10 ** -7)  # O(n^3) complexity for high-complexity resources
+                processing_time = (task.complexity ** 3) * (10 ** -9)  # O(n^3) complexity for high-complexity resources
         else:
-            processing_time = (task.complexity ** 2) * (10 ** -7)  # O(n^2) complexity for low-complexity resources
+            processing_time = (task.complexity ** 2) * (10 ** -9)  # O(n^2) complexity for low-complexity resources
 
         self.processing_times.append(processing_time)
         return processing_time
@@ -41,7 +41,10 @@ class Resource:
                 end_time = start_time + processing_time
                 self.tasks.append((start_time, end_time, task))
                 start_time = end_time
-                processed_tasks.append((task, processing_time))
+                accuracy = task.accuracy
+                if self.type == 'low':
+                    accuracy -= 10  # Reduce accuracy by 30% if processed by a low-complexity resource
+                processed_tasks.append((task, processing_time, accuracy))
                 self.processed_tasks.add(task)  # Mark the task as processed
 
         self.utilization_time = sum(self.processing_times)
@@ -66,44 +69,24 @@ def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity
     return combined_resources
 
 def least_loaded(partitions, resources, max_complexity):
+    # Sort partitions by complexity in ascending order (shortest job first)
+    partitions.sort(key=lambda x: x[1])
+
     for partition, complexity, partition_index in partitions:
         compatible_resources = [r for r in resources if r.can_handle(complexity)]
         if not compatible_resources:
             continue  # Skip partitions that cannot be handled by any resource
 
+        # Find the least loaded resource among compatible resources
         least_loaded = min(compatible_resources, key=lambda r: r.load)
+
+        # If there are multiple least loaded resources, choose the one with the smallest queue
+        if sum(r.load == least_loaded.load for r in compatible_resources) > 1:
+            least_loaded = min(compatible_resources, key=lambda r: (r.load, len(r.queue)))
+
         least_loaded.assign_task(Partition(partition, complexity, partition_index))
 
     return resources
-
-# def round_robin_schedule(partitions, num_resources):
-#     resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(num_resources)]
-#     resource_index = 0
-
-#     for partition, complexity in partitions:
-#         resources[resource_index].assign_task(Partition(partition, complexity))
-#         resource_index = (resource_index + 1) % num_resources
-
-#     print("\nRound-Robin Scheduling:")
-#     for resource in resources:
-#         resource.process_queue()
-
-#     return resources
-
-# def shortest_job_first(partitions, num_resources):
-#     resources = [Resource(i, max_complexity=float('inf'), type='high') for i in range(num_resources)]
-#     partitions = sorted(partitions, key=lambda p: p[1])  # Sort by complexity
-
-#     for partition, complexity in partitions:
-#         least_loaded = min(resources, key=lambda r: r.load)
-#         least_loaded.assign_task(Partition(partition, complexity))
-#         least_loaded.process_task(Partition(partition, complexity))
-
-#     print("\nShortest Job First Scheduling:")
-#     for resource in resources:
-#         resource.process_queue()
-
-#     return resources
 
 # def hierarchical_schedule(partitions, high_complexity_resources, low_complexity_resources, complexity_threshold):
 #     # Sort partitions by complexity in descending order
@@ -137,6 +120,7 @@ class Partition:
         self.nodes = subgraph.nodes
         self.complexity = complexity
         self.partition_index = partition_index
+        self.accuracy = 100  # Initialize accuracy to 100%
 
     def __len__(self):
         return len(self.nodes)
