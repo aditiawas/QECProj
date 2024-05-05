@@ -1,11 +1,9 @@
 # Resource-Constrained Surface Code Decoding: Analysis and Optimization Strategies
 
-A good command to run:\
+A good command to run:
 ```
    python3 main.py --size 100 100 --partitions 10 --thresh_compl 3 --time_limit 0.00000005
 ```
-
-# Surface Code Lattice Partitioning and Processing
 
 This project implements a system for partitioning and processing a surface code lattice using high-complexity and low-complexity resources. The system aims to optimize the scheduling and processing of partitions to maximize accuracy and minimize latency.
 
@@ -52,9 +50,9 @@ This project implements a system for partitioning and processing a surface code 
 
 ## Usage
 
-1. Run the `simulate.py` script with the desired command-line arguments:
+1. Run the `simulate.py` script with the desired command-line arguments (all of them are optional):
    ```
-   python simulate.py --size 100 100 --partitions 8 --num_hr 2 --num_lr 3 --thresh_compl 3 --time_limit 0.00000005
+   python3 simulate.py --size 100 100 --partitions 8 --num_hr 2 --num_lr 3 --thresh_compl 3 --time_limit 0.00000005
    ```
    - `--size`: Size of the lattice grid (rows, cols)
    - `--partitions`: Number of partitions to create
@@ -65,7 +63,7 @@ This project implements a system for partitioning and processing a surface code 
 
 2. Run the `Experiments.py` script to perform experimental analysis:
    ```
-   python Experiments.py
+   python3 Experiments.py
    ```
 
 ## Code Structure
