@@ -1,7 +1,7 @@
 # Resource-Constrained Surface Code Decoding: Analysis and Optimization Strategies
 
 Command to run\
-python3 main.py --size 100 100 --partitions 8 --thresh_compl 7
+python3 main.py --size 100 100 --partitions 10 --thresh_compl 3 --time_limit 0.00000005
 
 ## Overview
 This code implements a system for partitioning a surface code lattice into subgraphs, assigning these subgraphs to decoding units (resources) based on their complexity (number of nodes in syndrome graph), and processing the syndrome graphs in parallel. The system utilizes a dynamic load balancing approach to distribute the decosding of partitions among high-complexity-handling units and low-complexity-handling units efficiently.

@@ -25,9 +25,9 @@ class Resource:
     def estimate_processing_time(self, task):
         if self.type == 'high':
             if task.complexity <= self.max_complexity:
-                processing_time = (task.complexity ** 3) * (10 ** -9)  # O(n^3) complexity for high-complexity resources
+                processing_time = (task.complexity ** 3) * (10 ** -9)  # O(n^3) complexity for high-complexity resources (MWPM)
         else:
-            processing_time = (task.complexity ** 2) * (10 ** -9)  # O(n^2) complexity for low-complexity resources
+            processing_time = (2 * task.complexity) * (10 ** -9)  # O(2n) complexity for low-complexity resources (Union Find)
 
         self.processing_times.append(processing_time)
         return processing_time
