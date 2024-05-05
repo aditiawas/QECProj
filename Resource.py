@@ -132,9 +132,6 @@ def least_loaded(partitions, resources, max_complexity):
 
 #     return high_resources, low_resources
 
-# def process_queue_wrapper(resource):
-#     resource.process_queue()
-
 class Partition:
     def __init__(self, subgraph, complexity, partition_index):
         self.nodes = subgraph.nodes

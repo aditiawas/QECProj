@@ -37,6 +37,23 @@ def partition_lattice(lattice, num_partitions):
         if any(len(partition) == 0 for partition in partitions):
             grid_size /= 2
 
+    # Add shared nodes to relevant partitions
+    for node in lattice.nodes:
+        row, col = node
+        neighbors = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]
+        node_partitions = set()
+        for neighbor in neighbors:
+            if neighbor in lattice.nodes:
+                partition_index = spatial_hash(neighbor, grid_size, lattice_size, num_partitions)
+                node_partitions.add(partition_index)
+        for partition_index in node_partitions:
+            partitions[partition_index].add(node)
+
+    # print("Shared node counts:")
+    # for i, partition in enumerate(partitions):
+    #     shared_count = sum(1 for node in partition if any(node in other_partition for j, other_partition in enumerate(partitions) if i != j))
+    #     print(f"Partition {i}: {shared_count} shared nodes")
+
     subgraphs = []
     partition_index = 0
     for nodes in partitions:
@@ -52,51 +69,56 @@ def partition_lattice(lattice, num_partitions):
         subgraphs.append((subgraph, complexity, partition_index))
         partition_index += 1
 
-    # Check for shared nodes between partitions
-    for i in range(len(partitions)):
-        for j in range(i + 1, len(partitions)):
-            shared_nodes = partitions[i] & partitions[j]
-            if shared_nodes:
-                subgraph1, complexity1, _ = subgraphs[i]
-                subgraph2, complexity2, _ = subgraphs[j]
-
-                subgraph1.add_nodes_from(shared_nodes)
-                subgraph2.add_nodes_from(shared_nodes)
-                subgraphs[i] = (subgraph1, complexity1, i)
-                subgraphs[j] = (subgraph2, complexity2, j)
-
     return subgraphs
 
-def combine_partitions(subgraph1, subgraph2):
-    combined_graph = nx.Graph()
-    combined_graph.add_nodes_from(subgraph1.nodes, bipartite=subgraph1.nodes)
-    combined_graph.add_nodes_from(subgraph2.nodes, bipartite=subgraph2.nodes)
-    combined_graph.add_edges_from(subgraph1.edges)
-    combined_graph.add_edges_from(subgraph2.edges)
+def combine_partitions(subgraph1, subgraph2, original_lattice):
+    combined_nodes = set(subgraph1.nodes) | set(subgraph2.nodes)
+    combined_graph = original_lattice.subgraph(combined_nodes)
 
-    return combined_graph
+    # Remove duplicate nodes and count shared nodes
+    node_positions = set()
+    shared_nodes = 0
+    for node in combined_graph.nodes():
+        if node in node_positions:
+            combined_graph.remove_node(node)
+            shared_nodes += 1
+        else:
+            node_positions.add(node)
 
-def combine_partitions_parallel(subgraphs):
+    # Calculate latency based on the number of shared nodes
+    latency = 2 * shared_nodes * (10 ** -8)
+
+    return combined_graph, latency
+
+def combine_partitions_parallel(subgraphs, original_lattice):
     """
     Combine all subgraphs in parallel by combining pairs of subgraphs using a pool of workers.
 
     Args:
         subgraphs (list): A list of subgraphs to be combined.
+        original_lattice (nx.Graph): The original lattice graph.
 
     Returns:
-        nx.Graph: The combined subgraph.
+        tuple: A tuple containing the combined subgraph and the total latency.
     """
+    total_latency = 0
+
     with multiprocessing.Pool() as pool:
         while len(subgraphs) > 1:
             if len(subgraphs) % 2 != 0:
                 # If there is an odd number of subgraphs, combine the last subgraph with the second-to-last subgraph
-                subgraphs[-2] = combine_partitions(subgraphs[-2], subgraphs[-1])
+                subgraph, latency = combine_partitions(subgraphs[-2], subgraphs[-1], original_lattice)
+                subgraphs[-2] = subgraph
+                total_latency += latency
                 subgraphs.pop()
 
-            pairs = [(subgraphs[i], subgraphs[i + 1]) for i in range(0, len(subgraphs), 2)]
-            subgraphs = pool.starmap(combine_partitions, pairs)
+            pairs = [(subgraphs[i], subgraphs[i + 1], original_lattice) for i in range(0, len(subgraphs), 2)]
+            results = pool.starmap(combine_partitions, pairs)
 
-    return subgraphs[0] if subgraphs else None
+            subgraphs = [result[0] for result in results]
+            total_latency += sum(result[1] for result in results)
+
+    return subgraphs[0], total_latency
 
 if __name__ == "__main__":
     # Parse command-line arguments
@@ -106,6 +128,7 @@ if __name__ == "__main__":
     parser.add_argument("--num_hr", type=int, default=2, help="Number of high-complexity resources")
     parser.add_argument("--num_lr", type=int, default=3, help="Number of low-complexity resources")
     parser.add_argument("--thresh_compl", type=int, default=2, help="Number of low-complexity resources")
+    parser.add_argument("--time_limit", type=float, default=float('inf'), help="Time limit for running the partitions (in seconds)")
     args = parser.parse_args()
 
     # Create a sample lattice
@@ -135,11 +158,6 @@ if __name__ == "__main__":
     end_time = time.time()  # Record the end time
     total_time = end_time - start_time
     print(f"\nScheduling overhead: {total_time:.9f} seconds.")
-
-    # Print all partitions and their associated complexities
-    print("\nAll Partitions:")
-    for subgraph, complexity, partition_index in partitions:
-        print(f"Partition {partition_index}: Complexity = {complexity}")
 
     # Estimate processing times for each resource (PARALLEL)
     max_time_taken = 0
@@ -189,13 +207,34 @@ if __name__ == "__main__":
     plt.tight_layout()
     plt.show()
 
-    start_time = time.time()
     # Combine all partitions in parallel
-    all_partitions = [subgraph for subgraph, _, _ in partitions]  # Update the list comprehension
-    combined_lattice = combine_partitions_parallel(all_partitions)
-    end_time = time.time()  # Record the end time
-    total_time = end_time - start_time
-    print(f"Lattice formation time: {total_time:.9f} seconds.")
+    all_partitions = [subgraph for subgraph, _, _ in partitions]
+    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
     print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
+    print(f"Total latency during partition combination: {total_latency:.9f} seconds.")
 
     print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
+
+    total_time = sum(resource.utilization_time for resource in combined_resources)
+    print(f"\nTotal estimated processing time: {total_time:.9f} seconds.")
+
+    if total_time > args.time_limit:
+        print(f"Total time exceeds the specified time limit of {args.time_limit:.9f} seconds.")
+        remaining_time = args.time_limit
+        for resource in combined_resources:
+            for task, processing_time in resource.process_queue():
+                if remaining_time > 0:
+                    if processing_time <= remaining_time:
+                        remaining_time -= processing_time
+                        print(f"Partition {task.partition_index} processed completely.")
+                    else:
+                        print(f"Partition {task.partition_index} processed for {remaining_time:.9f} seconds.")
+                        print(f"  Remaining time: {processing_time - remaining_time:.9f} seconds.")
+                        print(f"  Percentage completed: {(remaining_time / processing_time) * 100:.2f}%")
+                        remaining_time = 0
+                else:
+                    print(f"Partition {task.partition_index} not processed.")
+                    print(f"  Remaining time: {processing_time:.9f} seconds.")
+                    print(f"  Percentage completed: 0.00%")
+    else:
+        print("All partitions processed within the specified time limit.")
