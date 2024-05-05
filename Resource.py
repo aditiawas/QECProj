@@ -13,6 +13,7 @@ class Resource:
         self.utilization_time = 0  # New attribute to store the utilization time
         self.max_time_taken = 0  # New attribute to store the maximum time taken
         self.processed_tasks = set()  # Add a set to keep track of processed tasks
+        self.processing_times = []  # Store processing times for each task
 
     def can_handle(self, complexity):
         return complexity <= self.max_complexity
@@ -24,11 +25,11 @@ class Resource:
     def estimate_processing_time(self, task):
         if self.type == 'high':
             if task.complexity <= self.max_complexity:
-                processing_time = (task.complexity ** 3)*(10**-7)  # O(n^3) complexity for high-complexity resources
+                processing_time = (task.complexity ** 3) * (10 ** -7)  # O(n^3) complexity for high-complexity resources
         else:
-            processing_time = (task.complexity ** 2)*(10**-7)  # O(n^2) complexity for low-complexity resources
+            processing_time = (task.complexity ** 2) * (10 ** -7)  # O(n^2) complexity for low-complexity resources
 
-        self.utilization_time += processing_time
+        self.processing_times.append(processing_time)
         return processing_time
 
     def process_queue(self):
@@ -42,6 +43,8 @@ class Resource:
                 start_time = end_time
                 processed_tasks.append((task, processing_time))
                 self.processed_tasks.add(task)  # Mark the task as processed
+
+        self.utilization_time = sum(self.processing_times)
         return processed_tasks
 
 def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources):

@@ -165,16 +165,35 @@ if __name__ == "__main__":
     print("\nPartition Processing:")
     for resource in combined_resources:
         processed_tasks = resource.process_queue()
-        total_processing_time = sum(processing_time for _, processing_time in processed_tasks)
-        print(f"Resource {resource.id} ({resource.type}) estimated processing time: {total_processing_time:.9f}")
-        print(f"Resource {resource.id} ({resource.type}) utilization time: {resource.utilization_time:.9f}")
-        max_time_taken = max(max_time_taken, resource.utilization_time)
+        resource_processing_time = resource.utilization_time
+        print(f"Resource {resource.id} ({resource.type}) estimated processing time: {resource_processing_time:.9f}")
+        max_time_taken = max(max_time_taken, resource_processing_time)
         for task, processing_time in processed_tasks:
             print(f"Resource {resource.id} ({resource.type}) processing Partition {task.partition_index}")
             print(f"  Partition {task.partition_index} with {len(task.nodes)} nodes (syndrome graph size {task.complexity})")
         print("\n")
 
-    # Generate Gantt chart
+    # Combine all partitions in parallel
+    all_partitions = [subgraph for subgraph, _, _ in partitions]
+    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
+    print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
+    print(f"Total latency during partition combination: {total_latency:.9f} seconds.")
+
+    print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
+
+    if max_time_taken > args.time_limit:
+        print(f"Total time exceeds the specified time limit of {args.time_limit:.9f} seconds.")
+        exceeded_resources = [resource for resource in combined_resources if resource.utilization_time > args.time_limit]
+        if exceeded_resources:
+            print("Resources that exceeded the time limit:")
+            for resource in exceeded_resources:
+                print(f"Resource {resource.id} ({resource.type}) took {resource.utilization_time:.9f} seconds")
+        else:
+            print("No resource exceeded the time limit individually, but the maximum processing time exceeds the limit.")
+    else:
+        print("All partitions processed within the specified time limit.")
+
+# Generate Gantt chart
     fig, ax = plt.subplots(figsize=(12, 8))
     unique_resources = list(set(combined_resources))
     num_colors = len(partitions)
@@ -204,37 +223,10 @@ if __name__ == "__main__":
     legend_handles = [plt.Rectangle((0, 0), 1, 1, color=colors[index % num_colors]) for index in partition_indices]
     ax.legend(legend_handles, legend_labels, loc='upper right', title='Partitions', ncol=2)
 
+    # Add vertical line at time limit if not infinity
+    if args.time_limit != float('inf'):
+        ax.axvline(x=args.time_limit, linestyle='--', color='r', label='Time Limit')
+        ax.legend()
+
     plt.tight_layout()
     plt.show()
-
-    # Combine all partitions in parallel
-    all_partitions = [subgraph for subgraph, _, _ in partitions]
-    combined_lattice, total_latency = combine_partitions_parallel(all_partitions, lattice)
-    print(f"Combined lattice has {len(combined_lattice.nodes)} nodes.")
-    print(f"Total latency during partition combination: {total_latency:.9f} seconds.")
-
-    print(f"\nMaximum time taken by any resource: {max_time_taken:.9f}")
-
-    total_time = sum(resource.utilization_time for resource in combined_resources)
-    print(f"\nTotal estimated processing time: {total_time:.9f} seconds.")
-
-    if total_time > args.time_limit:
-        print(f"Total time exceeds the specified time limit of {args.time_limit:.9f} seconds.")
-        remaining_time = args.time_limit
-        for resource in combined_resources:
-            for task, processing_time in resource.process_queue():
-                if remaining_time > 0:
-                    if processing_time <= remaining_time:
-                        remaining_time -= processing_time
-                        print(f"Partition {task.partition_index} processed completely.")
-                    else:
-                        print(f"Partition {task.partition_index} processed for {remaining_time:.9f} seconds.")
-                        print(f"  Remaining time: {processing_time - remaining_time:.9f} seconds.")
-                        print(f"  Percentage completed: {(remaining_time / processing_time) * 100:.2f}%")
-                        remaining_time = 0
-                else:
-                    print(f"Partition {task.partition_index} not processed.")
-                    print(f"  Remaining time: {processing_time:.9f} seconds.")
-                    print(f"  Percentage completed: 0.00%")
-    else:
-        print("All partitions processed within the specified time limit.")
