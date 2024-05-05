@@ -93,7 +93,7 @@ def combine_partitions(subgraph1, subgraph2, original_lattice):
             if neighbor not in subgraph2.nodes and neighbor in original_lattice.nodes:
                 boundary_nodes_subgraph2.add(node)
 
-    total_boundary_nodes = len(boundary_nodes_subgraph1) + len(boundary_nodes_subgraph2)
+    total_boundary_nodes = (len(boundary_nodes_subgraph1) + len(boundary_nodes_subgraph2))/10
 
     # Calculate latency based on the total number of boundary nodes
     latency = total_boundary_nodes * (10 ** -10)
@@ -275,5 +275,5 @@ def main_func(args):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    combined_resources, partitions, args, max_time_taken = main_func(args)
+    combined_resources, partitions, args, max_time_taken, net_accuracy = main_func(args)
     generate_gantt_chart(combined_resources, partitions, args)
