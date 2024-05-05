@@ -64,12 +64,10 @@ def combine_partitions(subgraph1, subgraph2, original_lattice):
 
     # Remove duplicate nodes and count shared nodes
     node_positions = set()
-    shared_nodes = 0
     nodes_to_remove = set()
     for node in combined_graph.nodes():
         if node in node_positions:
             nodes_to_remove.add(node)
-            shared_nodes += 1
         else:
             node_positions.add(node)
 
@@ -77,8 +75,28 @@ def combine_partitions(subgraph1, subgraph2, original_lattice):
     for node in nodes_to_remove:
         combined_graph.remove_node(node)
 
-    # Calculate latency based on the number of shared nodes
-    latency = 2 * shared_nodes * (10 ** -9)
+    # Calculate the total number of boundary nodes in both subgraphs
+    boundary_nodes_subgraph1 = set()
+    boundary_nodes_subgraph2 = set()
+
+    for node in subgraph1.nodes:
+        row, col = node
+        neighbors = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]
+        for neighbor in neighbors:
+            if neighbor not in subgraph1.nodes and neighbor in original_lattice.nodes:
+                boundary_nodes_subgraph1.add(node)
+
+    for node in subgraph2.nodes:
+        row, col = node
+        neighbors = [(row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1)]
+        for neighbor in neighbors:
+            if neighbor not in subgraph2.nodes and neighbor in original_lattice.nodes:
+                boundary_nodes_subgraph2.add(node)
+
+    total_boundary_nodes = len(boundary_nodes_subgraph1) + len(boundary_nodes_subgraph2)
+
+    # Calculate latency based on the total number of boundary nodes
+    latency = total_boundary_nodes * (10 ** -10)
 
     return combined_graph, latency
 
@@ -231,7 +249,7 @@ def main():
     high_complexity_resources, low_complexity_resources = create_resources(args)
 
     combined_resources, scheduling_overhead = schedule_partitions(partitions, high_complexity_resources, low_complexity_resources)
-    print(f"\nScheduling overhead: {scheduling_overhead:.10f} seconds.")
+    print(f"\nScheduling overhead on this system: {scheduling_overhead:.10f} seconds.")
 
     max_time_taken, total_accuracy = process_partitions(combined_resources)
     print(f"Maximum time taken by any resource: {max_time_taken:.10f}")
