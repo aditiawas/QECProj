@@ -4,49 +4,42 @@ import time
 import multiprocessing
 import argparse
 from Resource import Resource, hierarchical_schedule, dynamic_load_balancing, process_queue_wrapper
+import math
+
+def spatial_hash(node_position, grid_size, lattice_size):
+    x, y = node_position
+    grid_x = x // grid_size
+    grid_y = y // grid_size
+    # Combine grid_x and grid_y into a single index
+    index = grid_x + grid_y * lattice_size
+    return int(index)
 
 def partition_lattice(lattice, num_partitions):
-    """
-    Partition the given surface code lattice into num_partitions subgraphs.
-    Boundary vertices of each partition are present in both the subgraphs that share those vertices.
-
-    Args:
-        lattice (nx.Graph): The surface code lattice graph.
-        num_partitions (int): The number of partitions to create.
-
-    Returns:
-        list: A list of subgraphs representing the partitions along with their complexity.
-    """
-    # Get the number of nodes in the lattice
     num_nodes = len(lattice.nodes)
+    lattice_size = int(math.sqrt(num_nodes))
 
-    # Calculate the number of nodes per partition
+    grid_size = lattice_size / math.sqrt(num_partitions)
+
     nodes_per_partition, remainder = divmod(num_nodes, num_partitions)
-
-    # Create a list of node sets, one for each partition
     partitions = [set() for _ in range(num_partitions)]
 
-    # Assign nodes to partitions in a round-robin fashion
-    for i, node in enumerate(lattice.nodes):
-        partition_index = i // (nodes_per_partition + 1)
-        if partition_index >= num_partitions:
-            partition_index = i - (num_partitions * (nodes_per_partition + 1))
+    for node in lattice.nodes:
+        row, col = node
+        node_position = (row, col)  # Assuming the node's position is represented by its row and column indices
+        partition_index = spatial_hash(node_position, grid_size, lattice_size) % num_partitions
         partitions[partition_index].add(node)
 
-    # Create subgraphs from the node sets and calculate their complexity
     subgraphs = []
     for nodes in partitions:
         subgraph = lattice.subgraph(nodes)
         n = len(nodes)
         max_complexity = n * (n - 1) // 2
 
-        # Generate a random complexity value with a bias towards lower numbers
         complexity = random.randint(0, max_complexity)
         complexity = int(complexity ** 0.6)
 
         subgraphs.append((subgraph, complexity))
 
-    # Ensure boundary vertices are present in both subgraphs that share them
     for i in range(num_partitions):
         for j in range(i + 1, num_partitions):
             shared_nodes = partitions[i] & partitions[j]

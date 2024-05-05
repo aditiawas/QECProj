@@ -44,41 +44,6 @@ class Resource:
     def __repr__(self):
         return f"Resource {self.id} ({self.type}, load={self.load}, processing_time={self.processing_time})"
 
-def partition_lattice(lattice, num_partitions):
-    """
-    Partition the given surface code lattice into num_partitions subgraphs.
-    
-    Args:
-        lattice (nx.Graph): The surface code lattice graph.
-        num_partitions (int): The number of partitions to create.
-        
-    Returns:
-        list: A list of subgraphs representing the partitions along with their complexity.
-    """
-    # Get the number of nodes in the lattice
-    num_nodes = len(lattice.nodes)
-    
-    # Calculate the number of nodes per partition
-    nodes_per_partition = num_nodes // num_partitions
-    
-    # Create a list of node lists, one for each partition
-    partitions = [[] for _ in range(num_partitions)]
-    
-    # Assign nodes to partitions in a round-robin fashion
-    for i, node in enumerate(lattice.nodes):
-        partition_index = i // nodes_per_partition
-        partitions[partition_index].append(node)
-    
-    # Create subgraphs from the node lists and calculate their complexity
-    subgraphs = []
-    for nodes in partitions:
-        subgraph = lattice.subgraph(nodes)
-        n = len(nodes)
-        complexity = n * (n - 1) // 2  # Maximum number of edges in a complete subgraph
-        subgraphs.append((subgraph, complexity))
-    
-    return subgraphs
-
 def dynamic_load_balancing(partitions, high_complexity_resources, low_complexity_resources):
     # Sort partitions by complexity in descending order
     partitions.sort(key=lambda x: x[1], reverse=True)
