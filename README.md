@@ -1,7 +1,9 @@
 # Resource-Constrained Surface Code Decoding: Analysis and Optimization Strategies
 
-Command to run\
-python3 main.py --size 100 100 --partitions 10 --thresh_compl 3 --time_limit 0.00000005
+A good command to run:\
+```
+   python3 main.py --size 100 100 --partitions 10 --thresh_compl 3 --time_limit 0.00000005
+```
 
 # Surface Code Lattice Partitioning and Processing
 
