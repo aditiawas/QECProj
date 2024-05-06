@@ -12,9 +12,10 @@ def size_change():
     # Initialize lists to store data
     lattice_sizes = []
     max_times = []
+    net_accuracies = []
 
     # Loop over different lattice sizes
-    for rows in range(5, 15):
+    for rows in range(5, 100, 10):
             size = [rows, rows]
             lattice_sizes.append(rows * rows)
             
@@ -27,16 +28,28 @@ def size_change():
             # Collect the maximum time taken by any resource
             max_times.append(max_time_taken)
 
+            # Collect the net accuracy across all partitions
+            net_accuracies.append(net_accuracy)
+
     # Plot the graph
     plt.plot(lattice_sizes, max_times)
-    plt.xlabel('Lattice Size')
+    plt.xlabel('Lattice Size (in nodes)')
     plt.ylabel('Maximum Time Taken (seconds)')
     plt.title('Lattice Size vs Maximum Time Taken')
     plt.show()
 
+    # Plot the graph
+    plt.plot(lattice_sizes, net_accuracies)
+    plt.xlabel('Lattice Size (in nodes)')
+    plt.ylabel('Net Accuracy (%)')
+    ax = plt.gca()
+    #ax.set_ylim([90, 100])
+    plt.title('Lattice Size vs Net Accuracy')
+    plt.show()
+
 def partition_num_change():
     # Set fixed arguments
-    size = [10, 10]
+    size = [100, 100]
     num_hr = 2
     num_lr = 3
     thresh_compl = 3
@@ -67,19 +80,21 @@ def partition_num_change():
     plt.plot(num_partitions, net_accuracies)
     plt.xlabel('Number of Partitions')
     plt.ylabel('Net Accuracy (%)')
+    ax = plt.gca()
+    #ax.set_ylim([90, 100])
     plt.title('Number of Partitions vs Net Accuracy')
     plt.show()
 
     # Plot the graph
     plt.plot(num_partitions, max_times)
-    plt.xlabel('Lattice Size')
+    plt.xlabel('Number of Partitions')
     plt.ylabel('Maximum Time Taken (seconds)')
     plt.title('Number of Partitions vs Maximum Time Taken')
     plt.show()
 
 def res_num_change():
     # Set fixed arguments
-    size = [10, 10]
+    size = [50, 50]
     partitions = 8
     thresh_compl = 2
     time_limit = float('inf')
@@ -120,7 +135,7 @@ def res_num_change():
 
     # Plot the graph
     fig, ax = plt.subplots(figsize=(8, 6))
-    scatter = ax.scatter(num_hr_values, num_lr_values, c=accuracy, cmap='viridis')
+    scatter = ax.scatter(num_hr_values, num_lr_values, c=accuracy, cmap='plasma')
     ax.set_xlabel('Number of High-Complexity Resources')
     ax.set_ylabel('Number of Low-Complexity Resources')
     ax.set_title('Accuracy')
@@ -130,7 +145,7 @@ def res_num_change():
 
 def thresh_compl_change():
     # Set fixed arguments
-    size = [20, 20]
+    size = [100, 100]
     partitions = 8
     num_hr = 2
     num_lr = 3
@@ -141,7 +156,7 @@ def thresh_compl_change():
     max_times = []
 
     # Loop over different values of thresh_compl
-    for thresh_compl in range(3, 7):
+    for thresh_compl in range(3, 10):
         thresh_compl_values.append(thresh_compl)
 
         args = simulate.parse_arguments(['--size', str(size[0]), str(size[1]), '--partitions', str(partitions),
@@ -160,58 +175,57 @@ def thresh_compl_change():
     plt.title('Threshold for Low-Complexity Resources vs Latency')
     plt.show()
 
-def time_lim_change():
-    # Set fixed arguments
-    size = [20, 20]
-    partitions = 8
-    num_hr = 2
-    num_lr = 3
-    thresh_compl = 2
+# def time_lim_change():
+#     # Set fixed arguments
+#     size = [20, 20]
+#     partitions = 8
+#     num_hr = 2
+#     num_lr = 3
+#     thresh_compl = 2
 
-    # Initialize lists to store data
-    time_limits = []
-    max_times = []
-    exceeded_time_limit = []
+#     # Initialize lists to store data
+#     time_limits = []
+#     max_times = []
+#     exceeded_time_limit = []
 
-    # Loop over different time limits
-    for time_limit in [0.00000002, 0.00000003, 0.00000004, 0.00000005, 0.00000006, float('inf')]:
-        time_limits.append(time_limit)
-        args = simulate.parse_arguments(['--size', str(size[0]), str(size[1]), '--partitions', str(partitions),
-                                '--num_hr', str(num_hr), '--num_lr', str(num_lr),
-                                '--thresh_compl', str(thresh_compl), '--time_limit', str(time_limit)])
+#     # Loop over different time limits
+#     for time_limit in [0.000000002, 0.000000003, 0.000000004, 0.000000005, 0.000000006, float('inf')]:
+#         time_limits.append(time_limit)
+#         args = simulate.parse_arguments(['--size', str(size[0]), str(size[1]), '--partitions', str(partitions),
+#                                 '--num_hr', str(num_hr), '--num_lr', str(num_lr),
+#                                 '--thresh_compl', str(thresh_compl), '--time_limit', str(time_limit)])
 
-        combined_resources, p, a, max_time_taken, net_accuracy = simulate.main_func(args)  # Run the main function with the current arguments
+#         combined_resources, p, a, max_time_taken, net_accuracy = simulate.main_func(args)  # Run the main function with the current arguments
 
-        # Collect the maximum time taken by any resource
-        max_times.append(max_time_taken)
+#         # Collect the maximum time taken by any resource
+#         max_times.append(max_time_taken)
 
-        # Check if the time limit was exceeded
-        if max_time_taken > time_limit:
-            exceeded_time_limit.append(True)
-        else:
-            exceeded_time_limit.append(False)
+#         # Check if the time limit was exceeded
+#         if max_time_taken > time_limit:
+#             exceeded_time_limit.append(True)
+#         else:
+#             exceeded_time_limit.append(False)
 
-    # Plot the graph
-    fig, ax = plt.subplots(figsize=(8, 6))
-    scatter = ax.scatter(time_limits, max_times, c=exceeded_time_limit, cmap='RdYlGn')
-    ax.set_xlabel('Time Limit (seconds)')
-    ax.set_ylabel('Maximum Time Taken (seconds)')
-    ax.set_title('Time Limit vs Maximum Time Taken')
-    cbar = fig.colorbar(scatter)
-    cbar.set_ticks([0, 1])
-    cbar.set_ticklabels(['Exceeded Limit','Within Limit'])
-    plt.show()
+#     # Plot the graph
+#     fig, ax = plt.subplots(figsize=(8, 6))
+#     scatter = ax.scatter(time_limits, max_times, c=exceeded_time_limit, cmap='plasma')
+#     ax.set_xlabel('Time Limit (seconds)')
+#     ax.set_ylabel('Maximum Time Taken (seconds)')
+#     ax.set_title('Time Limit vs Maximum Time Taken')
+#     cbar = fig.colorbar(scatter)
+#     cbar.set_ticks([0, 1])
+#     cbar.set_ticklabels(['Exceeded Limit','Within Limit'])
+#     plt.show()
 
 def main():
     print("\nChoose an experiment to run:")
-    print("1. Lattice Size vs Maximum Time Taken")
+    print("1. Lattice Size vs Net Accuracy and Maximum Time Taken")
     print("2. Number of Partitions vs Net Accuracy and Maximum Time Taken")
     print("3. Resource Configuration vs Maximum Time Taken and Accuracy")
     print("4. Threshold for Low-Complexity Resources vs Latency")
-    print("5. Time Limit vs Maximum Time Taken")
-    print("6. Exit")
+    print("5. Exit")
 
-    choice = input("Enter your choice (1-6): ")
+    choice = input("Enter your choice (1-5): ")
 
     if choice == "1":
         size_change()
@@ -221,9 +235,9 @@ def main():
         res_num_change()
     elif choice == "4":
         thresh_compl_change()
+    # elif choice == "5":
+    #     time_lim_change()
     elif choice == "5":
-        time_lim_change()
-    elif choice == "6":
         print("Exiting...")
     else:
         print("Invalid choice. Please try again.")

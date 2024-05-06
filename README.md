@@ -25,7 +25,6 @@ This project implements a system for partitioning and processing a surface code 
    - [Number of Partitions vs Net Accuracy and Maximum Time Taken](#number-of-partitions-vs-net-accuracy-and-maximum-time-taken)
    - [Resource Configuration vs Maximum Time Taken and Accuracy](#resource-configuration-vs-maximum-time-taken-and-accuracy)
    - [Threshold for Low-Complexity Resources vs Latency](#threshold-for-low-complexity-resources-vs-latency)
-   - [Time Limit vs Maximum Time Taken](#time-limit-vs-maximum-time-taken)
 7. [License](#license)
 
 ## Features
@@ -93,7 +92,6 @@ This file contains functions for performing experimental analysis on the surface
 - Number of partitions vs net accuracy and maximum time taken
 - Resource configuration (number of high-complexity and low-complexity resources) vs maximum time taken and accuracy
 - Threshold for low-complexity resources vs latency
-- Time limit vs maximum time taken
 
 ## Algorithms and Techniques
 
@@ -137,10 +135,6 @@ This experiment analyzes the effect of different resource configurations (number
 ### Threshold for Low-Complexity Resources vs Latency
 
 This experiment examines the relationship between the threshold for low-complexity resources and the latency. It varies the threshold value while keeping other parameters fixed and plots the results.
-
-### Time Limit vs Maximum Time Taken
-
-This experiment investigates the impact of the time limit on the maximum time taken by any resource. It varies the time limit and plots the maximum time taken, indicating whether the time limit was exceeded or not.
 
 ## License
 
